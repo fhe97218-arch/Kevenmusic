@@ -1,85 +1,35 @@
 name: Build KEVEN Music APK
 
 on:
-  workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Descargar código
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configurar Flutter
-        uses: subosito/flutter-action@v2
+      - name: Setup JDK
+        uses: actions/setup-java@v4
         with:
-          flutter-version: '3.24.5'
-          channel: stable
-          cache: true
+          distribution: temurin
+          java-version: '17'
 
-      - name: Preparar código KEVEN Music
-        shell: bash
-        run: |
-          set -e
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
 
-          echo "Buscando ZIP..."
-          ZIP_FILE=$(find . -maxdepth 2 -type f -name 'KEVEN_Music_FINAL_1.0.zip' | head -n 1)
+      - name: Grant execute permission
+        run: chmod +x gradlew
 
-          if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: No se encontró KEVEN_Music_FINAL_1.0.zip"
-            exit 1
-          fi
+      - name: Build APK
+        run: ./gradlew assembleDebug
 
-          echo "ZIP encontrado: $ZIP_FILE"
-
-          mkdir -p keven_source
-          unzip -q "$ZIP_FILE" -d keven_source
-
-          PUBSPEC=$(find keven_source -type f -name 'pubspec.yaml' | head -n 1)
-
-          if [ -z "$PUBSPEC" ]; then
-            echo "ERROR: No se encontró pubspec.yaml"
-            exit 1
-          fi
-
-          SOURCE_DIR=$(dirname "$PUBSPEC")
-
-          echo "Código encontrado en: $SOURCE_DIR"
-
-          echo "Creando proyecto Flutter Android compatible..."
-          flutter create \
-            --platforms=android \
-            --project-name keven_music \
-            keven_android
-
-          echo "Copiando código de KEVEN Music..."
-
-          rm -rf keven_android/lib
-          cp -R "$SOURCE_DIR/lib" keven_android/lib
-
-          cp "$SOURCE_DIR/pubspec.yaml" keven_android/pubspec.yaml
-
-          if [ -f "$SOURCE_DIR/analysis_options.yaml" ]; then
-            cp "$SOURCE_DIR/analysis_options.yaml" keven_android/analysis_options.yaml
-          fi
-
-          echo "Proyecto preparado correctamente."
-
-      - name: Instalar dependencias
-        working-directory: keven_android
-        run: flutter pub get
-
-      - name: Construir APK
-        working-directory: keven_android
-        run: flutter build apk --release
-
-      - name: Guardar APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: KEVEN-Music-APK
-          path: keven_android/build/app/outputs/flutter-apk/app-release.apk
-          if-no-files-found: error
+          name: kevenmusic-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
